@@ -42,22 +42,26 @@ module TurbolinksRender
         end
       end
 
+      def gzipped?
+        response.is_a?(Rack::Deflater::GzipStream)
+      end
+
       def js_code_to_render_html(html)
+        html = ActiveSupport::Gzip.decompress(html) if gzipped?
         escaped_html = ActionController::Base.helpers.j(html)
-        <<-JS
+        code = <<-JS
         (function(){
           function renderWithTurbolinks(htmlContent){
             var currentSnapshot = Turbolinks.Snapshot.fromHTMLElement(document.documentElement);
             var newSpanshot = Turbolinks.Snapshot.fromHTMLString(htmlContent);
-            var nullCallback = function() {}
-            var afterRender = function(){ Turbolinks.dispatch('turbolinks:render') };
-            var delegate = {viewInvalidated: nullCallback, viewWillRender: nullCallback, viewRendered: afterRender};
+            var nullCallback = function(){};
+            var nullDelegate = {viewInvalidated: nullCallback, viewWillRender: nullCallback, viewRendered: nullCallback};
 
             var renderer = new Turbolinks.SnapshotRenderer(currentSnapshot, newSpanshot, false);
             if(!renderer.shouldRender()){
               renderer = new Turbolinks.ErrorRenderer(htmlContent);
             }
-            renderer.delegate = delegate;
+            renderer.delegate = nullDelegate;
             renderer.render(nullCallback);
           }
           Turbolinks.clearCache();
@@ -67,6 +71,7 @@ module TurbolinksRender
           Turbolinks.dispatch('turbolinks:load');
         })();
         JS
+        code = ActiveSupport::Gzip.compress(code) if gzipped?
       end
     end
 
