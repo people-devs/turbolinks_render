@@ -42,12 +42,24 @@ module TurbolinksRender
         end
       end
 
-      def gzipped?
-        response.is_a?(Rack::Deflater::GzipStream)
+      def gzipped?(str)
+
+        return false if str.nil? || str.length < 3
+
+        magic_number = str[0..1].unpack('C*')
+        compression_method = str[2].unpack('C').first
+
+        return false unless magic_number == [0x1f, 0x8b] && compression_method == 0x08
+
+        true
+      end
+
+      def body_gzipped?
+        @body_gzipped ||= gzipped?(body)
       end
 
       def js_code_to_render_html(html)
-        html = ActiveSupport::Gzip.decompress(html) if gzipped?
+        html = ActiveSupport::Gzip.decompress(html) if body_gzipped?
         escaped_html = ActionController::Base.helpers.j(html)
         code = <<-JS
         (function(){
@@ -71,7 +83,8 @@ module TurbolinksRender
           Turbolinks.dispatch('turbolinks:load');
         })();
         JS
-        code = ActiveSupport::Gzip.compress(code) if gzipped?
+        code = ActiveSupport::Gzip.compress(code) if body_gzipped?
+        code
       end
     end
 
