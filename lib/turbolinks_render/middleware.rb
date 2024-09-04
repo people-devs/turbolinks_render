@@ -2,7 +2,7 @@ module TurbolinksRender
   class Middleware
     Request = Struct.new(:request) do
       def candidate_for_turbolinks?
-        request.xhr? && !request.get?
+        request.xhr? && (!request.get? || turbolinks_render_option == :force)
       end
 
       def turbolinks_render_option
